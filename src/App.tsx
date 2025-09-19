@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, LogarithmicScale } from 'chart.js';
 import type { SearchItem } from './components/SearchBar';
 import SearchBar from './components/SearchBar';
 import ItemListWithSliders from './components/ItemListWithSliders';
@@ -9,23 +10,23 @@ import ufrjLogo from './ufrj-vertical-cor-rgb-completa-telas.svg'
 
 // Dados de exemplo (sem alterações)
 const poluentes: SearchItem[] = [
-  { id: 'dioxina', name: 'Dioxina' },
-  { id: 'octocrileno', name: 'Octocrileno' },
-  { id: 'benzofenonas', name: 'Benzofenonas' },
-  { id: 'metilparabeno', name: 'Metilparabeno' },
-  { id: 'propilparabeno', name: 'Propilparabeno' },
-  { id: 'mercurio', name: 'Mercurio' },
-  { id: 'chumbo', name: 'Chumbo' },
-  { id: 'polifluoroalquil', name: 'Polifluoroalquil' },
+  { id: 'dioxina', name: 'Dioxina', class:0 },
+  { id: 'octocrileno', name: 'Octocrileno', class:0 },
+  { id: 'benzofenonas', name: 'Benzofenonas', class:0 },
+  { id: 'metilparabeno', name: 'Metilparabeno', class:0 },
+  { id: 'propilparabeno', name: 'Propilparabeno', class:0 },
+  { id: 'mercurio', name: 'Mercurio', class: 0 },
+  { id: 'chumbo', name: 'Chumbo', class:0},
+  { id: 'polifluoroalquil', name: 'Polifluoroalquil', class:0 },
 ];
 
 const organismos: SearchItem[] = [
-  { id: 'golfinho', name: 'Golfinho' },
-  { id: 'plancton', name: 'Plancton' },
-  { id: 'tubarão', name: 'Tubarão' },
-  { id: 'baleia', name: 'Baleia' },
-  { id: 'tartaruga', name: 'Tartaruga' },
-  { id: 'peixes', name: 'Peixes de pequeno porte' },
+  { id: 'golfinho', name: 'Golfinho', class:3 },
+  { id: 'plancton', name: 'Plancton', class:1 },
+  { id: 'tubarão', name: 'Tubarão', class:0.01 },
+  { id: 'baleia', name: 'Baleia', class:0.01 },
+  { id: 'tartaruga', name: 'Tartaruga', class:0.01 },
+  { id: 'peixes', name: 'Peixes de pequeno porte', class:2 },
 
 ];
 
@@ -50,6 +51,13 @@ function App() {
   const [selectedOrganisms, setSelectedOrganisms] = useState<SearchItem[]>([]);
   const [plotData, setPlotData] = useState<PlotData>([]); 
   const [exampleText, setExampleText] = useState<string>("");
+
+  //useEffect para renderização condicional
+  const [expandedView, setExpandedView] = useState<'plots' | 'text' | null>(null);
+
+  useEffect(() => { const newPlotData = selectedPollutants.map((pollutant, pollutantIndex) => { const sliderValue = sliderValues[pollutant.id] || 100; const organismDataForPlot: any[] = selectedOrganisms.map((organism, organismIndex) => { const timePoints = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; const baseConcentrations = timePoints.map(t => Math.log(t + 1) * (organismIndex + 1) * (pollutantIndex + 1) * 5); const finalConcentrations = baseConcentrations.map(c => c * (sliderValue / 100)); return { organismName: organism.name as string, concentrations: finalConcentrations }; }); return { pollutantName: pollutant.name as string, organisms: organismDataForPlot }; }); setPlotData(newPlotData); }, [selectedPollutants, selectedOrganisms, sliderValues]);
+  useEffect(() => { const messages: string[] = []; if (sliderValues['dioxinas'] > 50) messages.push("ALERTA: Concentração de Dioxinas elevada."); setExampleText(messages.length > 0 ? messages.join('\n\n') : "Nenhum alerta."); }, [sliderValues]);
+
 
   //useEffect das mensagens
   useEffect(() => {
@@ -79,13 +87,13 @@ function App() {
 
   //UseEffect para gerar dados para o app plot
   useEffect(() => {
-    const newPlotData = selectedPollutants.map((pollutant, pollutantIndex) => {
+    const newPlotData = selectedPollutants.map((pollutant) => {
     const sliderValue = sliderValues[pollutant.id] || 100;
-    const organismDataForPlot: OrganismData[] = selectedOrganisms.map((organism, organismIndex) => {
+    const organismDataForPlot: OrganismData[] = selectedOrganisms.map((organism) => {
         
         const timePoints = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-        const baseConcentrations = timePoints.map(t => 
-          Math.log(t + 1) * (organismIndex + 1) * (pollutantIndex + 1) * 5
+        const baseConcentrations = timePoints.map(t =>
+          Math.log(t + 1) * organism.class*organism.class * 10
         );
 
         const finalConcentrations = baseConcentrations.map(c => c * (sliderValue / 100));
@@ -106,7 +114,7 @@ function App() {
 
 
   // Handler que será chamado pelo SearchBar de Poluentes
-  const handlePollutantSelectionChange = (newSelectedItems: SearchItem[]) => {
+  const handlePollutantSelectionChange = useCallback((newSelectedItems: SearchItem[]) => {
     setSelectedPollutants(newSelectedItems);
 
     const newValues: SliderValuesState = {};
@@ -114,9 +122,12 @@ function App() {
       newValues[item.id] = sliderValues[item.id] || 50; // Mantém o valor antigo ou define 50
     });
     setSliderValues(newValues);
-  };
+  }, [])
 
   // Handler para os sliders (só se aplica aos poluentes)
+/*
+  const handleSliderValueChange = useCallback((id: any, val: number) => { setSliderValues(p => ({ ...p, [id]: val })); }, []);
+*/
   const handleSliderValueChange = (itemId: string | number, newValue: number) => {
     setSliderValues(prevValues => ({
       ...prevValues,
@@ -125,9 +136,17 @@ function App() {
   };
 
   // ---HANDLER PARA ORGANISMOS ---
+/*
+  const handleOrganismSelectionChange = useCallback((newItems: SearchItem[]) => { setSelectedOrganisms(newItems); }, []);
+*/
   const handleOrganismSelectionChange = (newSelectedItems: SearchItem[]) => {
     setSelectedOrganisms(newSelectedItems);
   };
+
+  const ArrowIcon = ({ isOpen }: { isOpen: boolean }) => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }}><polyline points="6 9 12 15 18 9"></polyline></svg>);
+  const ExpandIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>);
+  const ShrinkIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 21v-6h-6M9 3v6H3M21 3l-7 7M3 21l7-7"/></svg>);
+
 
 
   // --- ESTILOS PARA O LAYOUT ---
@@ -204,8 +223,63 @@ function App() {
       padding: '20px',
       backgroundColor: '#e3e2e2ff',
       borderRadius: '8px',
-    }
+    },
+     
+    fullscreenContainer: { 
+      width: '100%', 
+      height: '100vh', 
+      padding: '2rem', 
+      overflowY: 'auto', 
+      backgroundColor: '#fff', 
+      boxSizing: 'border-box' 
+    },
+
+    expandButton: { 
+      background: 'rgba(255,255,255,0.7)', 
+      border: '1px solid #ccc', 
+      borderRadius: '5px', 
+      padding: '5px 10px', 
+      cursor: 'pointer', 
+      position: 'absolute', 
+      top: '10px', 
+      right: '10px', 
+      zIndex: 10, 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: '5px' },
+
+    shrinkButton: { 
+      background: '#eee', 
+      border: '1px solid #ccc', 
+      borderRadius: '5px', 
+      padding: '10px 15px', 
+      cursor: 'pointer', 
+      position: 'absolute', 
+      top: '20px', 
+      right: '20px', 
+      zIndex: 10, 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: '5px' },
+
   };
+
+  if(expandedView){
+    return (
+      <div style={styles.fullscreenContainer}>
+        <button style={styles.shrinkButton} onClick={() => setExpandedView(null)}>
+          <ShrinkIcon /> Voltar
+        </button>
+        {expandedView === 'plots' && <Plot plotData={plotData} />}
+        {expandedView === 'text' && (
+          <div>
+            <h1>Informações Adicionais</h1>
+            <p style={{ whiteSpace: 'pre-line', fontSize: '1.2em' }}>{exampleText}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={styles.mainContainer}>
@@ -254,6 +328,7 @@ function App() {
       {/* --- COLUNA 2: CONTEÚDO --- */}
       <div style={styles.contentColumn}>
         {/* Container Superior: Gráficos */}
+        <button style={styles.expandButton} onClick={() => setExpandedView('plots')}><ExpandIcon /> Expandir</button>
         <div style={styles.plotsWrapper}>
           <div style={styles.scrollingPlotsArea}>
             <Plot plotData={plotData} />
@@ -265,9 +340,12 @@ function App() {
         <aside style={styles.textContainer}>
 
           <h3>Informações Adicionais (Textos-exemplos) - (Ainda em Idealização)</h3>
+                    <button style={{...styles.expandButton, position: 'static'}} onClick={() => setExpandedView('text')}><ExpandIcon /></button>
+
            <p style={{ whiteSpace: 'pre-line' }}>
               {exampleText}
           </p>
+
         </aside>
       </div>
     </div>
