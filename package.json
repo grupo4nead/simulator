@@ -1,16 +1,16 @@
 {
-  "homepage": "https://pedro0r0ch.github.io/trophic_magification_simulator/",
+  "homepage": "https://grupo4nead.github.io/simulator",
   "name": "simulator",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "chart.js": "^4.5.0",
